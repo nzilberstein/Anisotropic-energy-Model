@@ -16,6 +16,17 @@ This repository contains the official code for the paper **"Normalized Energy Mo
 
 ---
 
+## Related Experiments
+
+This repository also contains two additional sets of experiments:
+
+| Folder | Description |
+|---|---|
+| [`autoregressive_exp/`](autoregressive_exp/) | Autoregressive sampling experiments (`CovarianceEDMAutoregressive`) |
+| [`isotropic_exp/`](isotropic_exp/) | Isotropic (standard EDM) score matching baseline experiments (`CovarianceEDMScoreMatching`) |
+
+---
+
 ## Installation
 
 ### Requirements
