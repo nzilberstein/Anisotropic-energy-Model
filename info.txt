@@ -1,0 +1,359 @@
+## Sampling and noise parameters for box 30
+sigma_begin = 8 #10
+sigma_end = 1e-2 #1e-2
+num_classes = 200
+sigma_dist = 'geometric'
+sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+# Sampling parameters
+n_steps_each = 1
+batch_size = test_batch_size
+snr = 0.15 #0.13 #0.2
+step_lr = None
+temp = 0.8 #1
+blind = False
+sampler = "PC" #"adaptive" #"PC" #
+# Parameters of the degradation
+sigma_box_init = sigma_begin**2
+sigma_clean_init = 1e-2
+domain = 'pixel' #'freq' #
+inp_mask_type = "box"
+box_size = 30 #13
+kernel_size = 4
+kernel_std = 0.8
+MSE total 0.004012682288885116
+LPIPS total 0.032109520381147214
+
+
+## Sampling and noise parameters
+sigma_begin = 27 #27
+sigma_end = 1e-2
+num_classes = 400
+sigma_dist = 'geometric'
+sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+# Sampling parameters
+batch_size = test_batch_size #64
+step_lr = None
+temp = 1
+# Parameters of the degradation
+sigma_box_init = sigma_begin**2
+sigma_clean_init = 1e-2
+inp_mask_type = "box"
+box_size = 30
+MSE total 0.005149569260803136
+LPIPS total 0.03524900024587458
+
+
+## Box 45 ## 
+
+## Sampling and noise parameters
+sigma_begin = 25 #27
+sigma_end = 1e-3
+num_classes = 1200
+sigma_dist = 'geometric'
+sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+# Sampling parameters
+batch_size = test_batch_size #64
+step_lr = None
+temp = 1
+# Parameters of the degradation
+sigma_box_init = sigma_begin**2
+sigma_clean_init = 1e-3
+inp_mask_type = "box"
+box_size = 45
+sampler = "dps"
+
+
+## Sampling and noise parameters
+sigma_begin = 25 #10
+sigma_end = 1e-3 #1e-2
+num_classes = 600
+sigma_dist = 'geometric'
+sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+# Sampling parameters
+n_steps_each = 1
+batch_size = test_batch_size
+snr = 0.15 #0.13 #0.2
+step_lr = None
+temp = 0.9 #1
+blind = False
+sampler = "PC" #"adaptive" #"PC" #
+# Parameters of the degradation
+sigma_box_init = sigma_begin**2
+sigma_clean_init = 1e-3
+domain = 'pixel' #'freq' #
+inp_mask_type = "box"
+box_size = 45 #13
+kernel_size = 4
+kernel_std = 0.8
+
+## Sampling and noise parameters
+sigma_begin = 27 #27
+sigma_end = 1e-3
+num_classes = 400 # 400
+sigma_dist = 'geometric'
+sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+# Sampling parameters76
+batch_size = test_batch_size #64
+step_lr = None
+temp = 1
+# Parameters of the degradation
+sigma_box_init = sigma_begin**2
+sigma_clean_init = 1e-3
+inp_mask_type = "box"
+box_size = 45
+sampler = "reddiff"
+
+
+## Sampling and noise parameters
+sigma_begin = 8 #10
+sigma_end = 1e-3 #1e-2
+num_classes = 600
+sigma_dist = 'geometric'
+sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+# Sampling parameters
+n_steps_each = 1
+batch_size = test_batch_size
+snr = 0.15 #0.13 #0.2
+step_lr = None
+temp = 0.9 #1
+blind = False
+sampler = "PC_adaptive" #"adaptive" #"PC" #
+# Parameters of the degradation
+sigma_box_init = sigma_begin**2
+sigma_clean_init = 1e-3
+domain = 'pixel' #'freq' #
+inp_mask_type = "box"
+box_size = 45 #13
+kernel_size = 4
+kernel_std = 0.8
+
+## MALA
+        sigma_begin = 25 #10
+        sigma_end = 1e-3 #1e-2
+        num_classes = 600
+        sigma_dist = 'geometric'
+        sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+        # Sampling parameters
+        n_steps_each = 1 #5
+        batch_size = test_batch_size
+        snr = 0.13
+        step_lr = None
+        temp = 0.9 #1
+        blind = False
+        sampler = "PC_malas" #"adaptive" #"PC" #
+        # Parameters of the degradation
+        sigma_box_init = sigma_begin**2
+        sigma_clean_init = 1e-3
+        domain = 'pixel' #'freq' #
+        inp_mask_type = "box" #"half"
+        box_size = 45 #30
+        kernel_size = 8
+        kernel_std = 0.8
+
+## Adaptive
+        sigma_begin = 4 #10
+        sigma_end = 1e-3 #1e-2
+        num_classes = 600
+        sigma_dist = 'geometric'
+        sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+        # Sampling parameters
+        n_steps_each = 1 #5
+        batch_size = test_batch_size
+        snr = 0.13 #0.12 for MALA - 1 step, 0.08 for 5
+        step_lr = None
+        temp = 0.9 #1
+        blind = False
+        sampler = "adaptive" #"adaptive" #"PC" #
+        # Parameters of the degradation
+        sigma_box_init = sigma_begin**2
+        sigma_clean_init = 1e-3
+        domain = 'pixel' #'freq' #
+        inp_mask_type = "box" #"half"
+        box_size = 45 #30
+        kernel_size = 8
+        kernel_std = 0.8
+
+---------------------- ImageNet
+
+
+    sigma_begin = 8 #best 8
+    sigma_end = 1e-2 #1e-2 
+    num_classes = 500 #400
+    sigma_dist = 'geometric'
+    sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+    # Sampling parameters
+    n_steps_each = 1
+    batch_size = test_batch_size
+    snr = 0.2 #0.13 #0.2
+    step_lr = None
+    temp = 1.0 #1
+    blind = False
+    sampler = "PC_adaptive" #"adaptive" #"PC" #
+    # Parameters of the degradation
+    sigma_box_init = sigma_begin**2
+    sigma_clean_init = 1e-3
+    domain = 'pixel' #'freq' #
+    inp_mask_type = "box"
+    box_size = 21 #13
+    kernel_size = 4
+    kernel_std = 0.8
+                    gamma_cov = 6e-2 
+                    clamp_val = 5e1 
+                    
+
+
+    sigma_begin = 25 #27
+    sigma_end = 1e-2
+    num_classes = 1000
+    sigma_dist = 'geometric'
+    sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+    # Sampling parameters
+    batch_size = test_batch_size #64
+    step_lr = None
+    temp = 1
+    # Parameters of the degradation
+    sigma_box_init = sigma_begin**2
+    sigma_clean_init = 1e-3
+    inp_mask_type = "box"
+    box_size = 21
+    sampler = "dps"
+
+        sigma_begin = 25 #27
+        sigma_end = 1e-2
+        num_classes = 500
+        sigma_dist = 'geometric'
+        sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+        # Sampling parameters
+        batch_size = test_batch_size #64
+        step_lr = None
+        temp = 1
+        # Parameters of the degradation
+        sigma_box_init = sigma_begin**2
+        sigma_clean_init = 1e-3
+        inp_mask_type = "box"
+        box_size = 21
+        sampler = "reddiff"
+
+        sigma_begin = 8 #10
+        sigma_end = 1e-2 #1e-2
+        num_classes = 500
+        sigma_dist = 'geometric'
+        sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+        # Sampling parameters
+        n_steps_each = 1
+        batch_size = test_batch_size
+        snr = 0.15 #0.13 #0.2
+        step_lr = None
+        temp = 1.0 #1
+        blind = False
+        sampler = "PC" #"adaptive" #"PC" #
+        # Parameters of the degradation
+        sigma_box_init = sigma_begin**2
+        sigma_clean_init = 1e-3
+        domain = 'pixel' #'freq' #
+        inp_mask_type = "box"
+        box_size = 21 #13
+        kernel_size = 4
+        kernel_std = 0.8
+
+
+Results for classical with energy
+MSE total 0.005300692380184219
+LPIPS total 0.053850210706392926
+srun: Job step aborted: Waiting up t
+
+
+-------------------- Gaussian ebluring
+
+    ## Sampling and noise parameters
+    sigma_begin = 0.01 #10
+    sigma_end = 1e-4 #1e-2
+    num_classes = 1000
+    sigma_dist = 'geometric'
+    sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+    # Sampling parameters
+    n_steps_each = 1
+    batch_size = test_batch_size
+    snr = 0.02 #0.13 #0.2
+    step_lr = None
+    temp = 1.0 #1
+    blind = False
+    sampler = "PC" #"adaptive" #"PC" #
+    # Parameters of the degradation
+    sigma_box_init = sigma_begin**2
+    sigma_clean_init = 1e-2
+    domain = 'freq' #'freq' #
+    inp_mask_type = "box"
+    box_size = 45 #13
+    kernel_size = 8
+    kernel_std = 0.8
+
+
+    ## Sampling and noise parameters
+    # sigma_begin = 25 #27
+    # sigma_end = 1e-2
+    # num_classes = 1500 # 400
+    # sigma_dist = 'geometric'
+    # sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+    # # Sampling parameters76
+    # batch_size = test_batch_size #64
+    # step_lr = None
+    # temp = 1
+    # # Parameters of the degradation
+    # sigma_box_init = sigma_begin**2
+    # sigma_clean_init = 1e-2
+    # inp_mask_type = "box"
+    # box_size = 23
+    # sampler = "dps"
+        
+    sigma_begin = 25 #27
+    sigma_end = 1e-2
+    num_classes = 500 # 400
+    sigma_dist = 'geometric'
+    sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
+    # Sampling parameters
+    batch_size = test_batch_size #64
+    step_lr = None
+    temp = 1
+    # Parameters of the degradation
+    sigma_box_init = sigma_begin**2
+    sigma_clean_init = 1e-2 
+    inp_mask_type = "box"
+    box_size = 45
+    sampler = "reddiff"
+    domain = 'freq'    
+    kernel_size = 8
+    kernel_std = 0.8
+
+
+
+------------- MALA Experiment
+
+5 inner steps - without MALA
+MSE total 0.017190640171368916                                                                                                                                                            
+LPIPS total 0.09307917697089059   
+
+5 inner steps - MALA
+MSE total 0.01625238231250218
+LPIPS total 0.09054314636048816
+
+
+
+
+
+
+
+
+
+---------------- Random in painting Experiment
+
+
+MSE total 0.00295030873801027
+LPIPS total 0.02289957766022001
+srun: Job step aborted: Waiting up to 62 seconds for job step to finish.
+(diffusion) [nzilberstein@rustyamd1 CovarianceGeneralEDMScoreMatching]$ sh fid.sh
+Downloading: "https://github.com/mseitzer/pytorch-fid/releases/download/fid_weights/pt_inception-2015-12-05-6726825d.pth" to /dev/shm/.cache-nzilberstein/torch/hub/checkpoints/pt_inception-2015-12-05-6726825d.pth
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 91.2M/91.2M [00:01<00:00, 53.7MB/s]             
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 9/9 [00:01<00:00,  5.87it/s]             
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 9/9 [00:00<00:00, 12.38it/s]             
+FID:  32.537851541217236
