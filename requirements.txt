@@ -1,0 +1,21 @@
+# PyTorch (CUDA 12.1) — install via the command below if not already present:
+# pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu121
+torch==2.6.0
+torchvision==0.21.0
+torchaudio==2.6.0
+
+# Core scientific
+numpy==2.2.6
+scipy==1.15.3
+einops==0.8.1
+tqdm==4.67.1
+
+# Logging
+tensorboard==2.19.0
+
+# Image quality metrics
+lpips==0.1.4
+torchmetrics==1.7.4
+
+# Optional — wavelet figures only
+PyWavelets==1.8.0

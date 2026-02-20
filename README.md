@@ -3,16 +3,7 @@
 
 This repository contains the official code for the paper **"Normalized Energy Models for Linear Inverse Problems"**. The method learns an anisotropic energy model by training a covariance-conditioned denoiser, enabling both generative sampling and blind parameter estimation for linear inverse problems.
 
-## Citation
 
-```bibtex
-@article{zilberstein2026,
-  title={Normalized Energy Models for Linear Inverse Problems},
-  author={Zilberstein, Nicolas and Guth, Florentin and Segarra, Santiago and Simoncelli, Eero P},
-  journal={arXiv preprint arXiv:2506.XXXXX},
-  year={2025}
-}
-```
 
 ---
 
@@ -23,28 +14,37 @@ This repository also contains two additional sets of experiments:
 | Folder | Description |
 |---|---|
 | [`autoregressive_exp/`](autoregressive_exp/) | Autoregressive sampling experiments (`CovarianceEDMAutoregressive`) |
-| [`isotropic_exp/`](isotropic_exp/) | Isotropic (standard EDM) score matching baseline experiments (`CovarianceEDMScoreMatching`) |
+| [`isotropic_exp/`](isotropic_exp/) | Guidance with isotropic score matching baseline experiments (`CovarianceEDMScoreMatching`) |
 
 ---
 
 ## Installation
 
-### Requirements
+The code requires **Python 3.11** and a CUDA-capable GPU. We recommend creating a new environment to avoid version conflicts.
 
-The code requires **Python 3.11** and a CUDA-capable GPU. Install the following packages:
+**Option 1 — Conda (recommended):**
 
 ```bash
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-pip install numpy scipy einops tqdm tensorboard
-pip install lpips torchmetrics
-pip install pywt  # optional, only needed for wavelet-related figures
+conda env create -f environment.yaml
+conda activate stable-dif
 ```
+
+**Option 2 — pip** (create an empty virtual environment first, then):
+
+```bash
+pip install -r requirements.txt
+```
+
+> **Note:** PyTorch is pinned to CUDA 12.1 builds. If your CUDA version differs, install torch manually first:
+> ```bash
+> pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+> ```
 
 The SLURM job script (`job_fg.sbatch`) activates the virtual environment at:
 ```
 ~/venvs/diffusion/bin/activate
 ```
-Create and populate your own virtual environment accordingly.
+Adjust this path to match your own environment.
 
 ### Repository structure
 
@@ -78,7 +78,6 @@ All datasets are expected under `~/datasets/` (configured in `data.py`). The fol
 | ImageNet-64 | `ImageNet64` | 64×64 | Downsampled ImageNet; place batches in `~/datasets/imagenet64/` |
 | AFHQ | `AFHQ` | 192×192 | Animal Faces HQ; place in `~/datasets/AFHQ/`; resized to 192×192 |
 | MNIST | `MNIST` | 28×28 | Auto-downloaded via torchvision |
-| Gaussian Mixture 2D | `GaussianMixture2D` | synthetic | 2D toy dataset |
 
 Images are expected to have pixel values in `[0, 1]` (applied automatically by the transforms). A custom folder of `.png` images can also be passed directly as the `--dataset` argument.
 
@@ -273,3 +272,27 @@ jupyter notebook blind_exp_oficial.ipynb
 The notebook loads model `multigpu/all_together/energy_song_dual_truncatedFreq_celeba` by default. To switch to ImageNet, change the `load_args` / `load_exp` calls to `energy_song_dual_truncatedFreq_imagenet`.
 
 **Outputs:** energy-vs-candidate-box-size plots comparing dual score matching (red) and single score matching (blue), with a green vertical line at the true box size and a red/blue dashed line at the model estimate. The dual model consistently produces a sharper minimum at the correct parameter value.
+
+
+---
+
+## Acknowledgements
+
+This work builds on:
+
+- [DualScoreMatching](https://github.com/FlorentinGuth/DualScoreMatching) by Florentin Guth — dual score matching framework.
+- [EDM](https://github.com/NVlabs/edm) by Karras et al. (NVlabs) — elucidating the design space of diffusion models.
+
+---
+
+
+## Citation
+
+```bibtex
+@article{zilberstein2026,
+  title={Normalized Energy Models for Linear Inverse Problems},
+  author={Zilberstein, Nicolas and Guth, Florentin and Segarra, Santiago and Simoncelli, Eero P},
+  journal={arXiv preprint arXiv:2506.XXXXX},
+  year={2025}
+}
+```
