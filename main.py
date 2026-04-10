@@ -39,14 +39,14 @@ class EMA:
 
         for name, param in model.named_parameters():
             if param.requires_grad:
-                self.shadow[name] = param.data.clone()
+                self.shadow[name] = param.data.clone().double()  # float64 to avoid precision loss
 
     @torch.no_grad()
     def update(self, model: nn.Module):
         for name, param in model.named_parameters():
             if not param.requires_grad:
                 continue
-            self.shadow[name].mul_(self.decay).add_(param.data, alpha=1.0 - self.decay)
+            self.shadow[name].mul_(self.decay).add_(param.data.double(), alpha=1.0 - self.decay)
 
     def apply_shadow(self, model: nn.Module):
         self.backup = {}
@@ -54,7 +54,7 @@ class EMA:
             if not param.requires_grad:
                 continue
             self.backup[name] = param.data.clone()
-            param.data.copy_(self.shadow[name])
+            param.data.copy_(self.shadow[name].to(param.data.dtype))
 
     def restore(self, model: nn.Module):
         for name, param in model.named_parameters():
@@ -151,17 +151,17 @@ class TrainingContext:
             elif args.size_network == "large":
                 # network = SongUNet(img_resolution=32, in_channels=3, out_channels=3, adaptive_scale = args.adaptive_scale, channel_mult=[2,2,2],embedding_type = 'positional', encoder_type = 'residual', dropout = 0.13)
                 network = SongUNet(img_resolution=28, in_channels=1, out_channels=1, adaptive_scale = args.adaptive_scale)
-        elif args.dataset == "GaussianMixture2D":
+        elif args.dataset == "Gaussian8x8":
             if args.size_network == "small":
-                network = SongUNet(img_resolution=16, in_channels=2, out_channels=2,
-                                model_channels=64,  # 64 or 128,  # Base multiplier for the number of channels.
-                                channel_mult=[2,2,2],    # Per-resolution multipliers for the number of channels.
-                                num_blocks=3,
-                                adaptive_scale = args.adaptive_scale
-                                )
-            elif args.size_network == "large":
-                # network = SongUNet(img_resolution=32, in_channels=3, out_channels=3, adaptive_scale = args.adaptive_scale, channel_mult=[2,2,2],embedding_type = 'positional', encoder_type = 'residual', dropout = 0.13)
-                network = AnisotropicConditionedMLP()
+                network = SongUNet(
+                    img_resolution=8, 
+                    in_channels=1, 
+                    out_channels=1,
+                    model_channels=32,  
+                    channel_mult=[1, 1, 2], # Keep it 32 channels for 8x8 and 4x4, only 64 for 2x2
+                    num_blocks=2,           # 2 blocks per scale is plenty for 64D data
+                    attn_resolutions = [2]
+                )
         else:
             if args.size_network == "small":
                 network = SongUNet(img_resolution=32, in_channels=3, out_channels=3,
@@ -265,7 +265,7 @@ def parse_args(*additional_args, **additional_kwargs) -> argparse.Namespace:
     # Testing arguments
     parser.add_argument("--test-batch-size", type=int, default=64, help="batch size for evaluation")
     parser.add_argument("--num-testing-steps", type=int, default=100, help="number of steps to test on")
-    parser.add_argument("--test-every", type=int, default=50_00, help="test every N steps")
+    parser.add_argument("--test-every", type=int, default=5_00, help="test every N steps")
     parser.add_argument("--log-gradients", default=False, action=argparse.BooleanOptionalAction, help="log gradients statistics during evaluation")
     parser.add_argument("--num-acum-gradients", type=int, default=1, help="number of gradient accumulation steps")
 
@@ -283,47 +283,10 @@ def parse_args(*additional_args, **additional_kwargs) -> argparse.Namespace:
     args = parser.parse_args(*additional_args)
     return args
 
-
-# def train_network(ctx: TrainingContext) -> None:
-#     """ Training-evaluate loop."""
-#     for batch in noisy_loader(ctx.train_dataloader, ctx.noise_level_sampler, ctx.noisy_sampler, ctx.time_tracker):  # Infinite loop.
-#         # Evaluate the model and save checkpoint.
-#         if ctx.step % ctx.args.test_every == 0 and ctx.args.num_testing_steps > 0:
-#             ctx.model.eval()
-#             # evaluate_and_save_checkpoint(ctx)
-#             save_checkpoint(ctx, train_perf_info=None, test_perf_info=None, is_best_on_test=False)  # TODO: compute and pass performance info.
-#             ctx.model.train()
-
-#         # Stop if we are done.
-#         if ctx.step == ctx.args.num_training_steps:
-#             break
-
-#         # Adjust learning rate.
-#         # if ctx.step % ctx.args.lr_decay_every == 0:
-#         #     lr = ctx.args.lr / (2 ** (ctx.step // ctx.args.lr_decay_every))  # Recalculate learning rate to work nicely with resumes.
-#         #     for param_group in ctx.optimizer.param_groups:
-#         #         param_group["lr"] = lr
-
-#         if ctx.step < ctx.args.warmup_steps:
-#             # Linear warm-up
-#             lr = ctx.args.lr  * ctx.step / ctx.args.warmup_steps
-#             for param_group in ctx.optimizer.param_groups:
-#                 param_group["lr"] = lr
-#         elif (ctx.step - ctx.args.warmup_steps) % ctx.args.lr_decay_every == 0:
-#             # Exponential decay after warm-up
-#             decay_factor = 2 ** ((ctx.step - ctx.args.warmup_steps) // ctx.args.lr_decay_every)
-#             lr = ctx.args.lr / decay_factor
-#             for param_group in ctx.optimizer.param_groups:
-#                 param_group["lr"] = lr
-
-#         # Training step.
-#         training_step(ctx, batch)
-#         ctx.step += 1
-
 ## --- Gradient Accumulation Training Loop --- ##
 def train_network(ctx: TrainingContext) -> None:
     """ Training-evaluate loop with gradient accumulation."""
-    # ⭐️ Define the accumulation steps N
+    # Define the accumulation steps N
     print(f"[DEBUG] use_ema={ctx.use_ema}, args.use_ema={ctx.args.use_ema}")
     N = ctx.args.num_acum_gradients # e.g., 16 for a simulated batch size of 128
     
@@ -354,8 +317,6 @@ def train_network(ctx: TrainingContext) -> None:
             ctx.optimizer.zero_grad() # Reset gradients for the next accumulation cycle
             
             # === EMA update (ONCE PER OPTIMIZER STEP) ===
-            # if ctx.use_ema and (ctx.step % ctx.args.ema_update_every == 0):
-                # ctx.ema.update(ctx.network)
             if ctx.use_ema and (ctx.step % ctx.args.ema_update_every == 0):
                 try:
                     key = next(iter(ctx.ema.shadow))
@@ -420,7 +381,6 @@ def compute_metrics(ctx, batch, output, train_test = "train"):
     metrics = {}
     loss = 0
     expand = lambda x: x[:, None] if t.ndim == 2 else x  # (B, [1 + L], ...) to (B, 1, ...)
-    # if train_test == "train":
     e = apply_power_to_list_covariances(batch.noise_covariance, output.denoised - expand(batch.clean), p=-0.5)
     # e = output.denoised - expand(batch.clean)
     mse = torch.mean(e ** 2, dim=(-1, -2, -3))  # (B, [1 + L]) 
@@ -428,21 +388,13 @@ def compute_metrics(ctx, batch, output, train_test = "train"):
     metrics["iso_denoising_mse"] = torch.mean((output.denoised - expand(batch.clean)) ** 2, dim=(-1, -2, -3))
     loss = loss + mse #When considering random matrices, we don't have to multiply by t because it is embedding in the covariance
             # ----------------------------- #
-    # elif train_test == "test":
-    #     e = output.denoised - expand(batch.clean)
-    #     mse = torch.mean(e ** 2, dim=(-1, -2, -3))
-    #     metrics["denoising_mse"] = mse
-    #     loss = loss + mse * t ** ctx.args.mse_var_exponent  # (B, [1 + L])
     if output.noise_score is not None:
-        # if train_test == "train":
-        #     if len(t.shape) == 1:
         z = apply_power_to_list_covariances(batch.noise_covariance, batch.noisy - expand(batch.clean), p=-1)
         phi_inv_minus_z = apply_inv_diff_tensor_from_list_covariances(batch.noise_covariance, z)
         e = apply_power_to_list_covariances(batch.noise_covariance, output.noise_score - phi_inv_minus_z, p=1)
-        noise_loss = torch.mean(e ** 2, dim=(-1, -2, -3)) / d  # (B, ...)
+        noise_loss = torch.mean(e ** 2, dim=(-1, -2, -3)) / d #/ d # (B, ...)
         metrics["norm_mse"] = noise_loss  # XXX: multiply by 4 for backwards compatibility
         if ctx.args.train_noise_score is not None:
-            print("Is on?")
             loss = loss + ctx.args.train_noise_score * noise_loss
                     
     # Also add energy (for cross-entropy/NLL).
@@ -876,7 +828,6 @@ def load_checkpoint(ctx: TrainingContext, step="last", key_remap=None) -> Tuple[
     key_remap is an optional function old_key -> new_key to remap keys in the model state_dict.
     Returns train and test performance info. """
     state = torch.load(checkpoint_filename(ctx, step), weights_only=False)
-    # state = torch.load("/mnt/home/nzilberstein/CovarianceGeneralEDMScoreMatching/models/multigpu/all_together/energy_song_score_anisoEmb_groupNorm_lambda1_mult_lr2e-4_lrdecay50000_1000warmup_d2_correct_truncatedDeblur_bs512/model.pth.tar", weights_only=False)
     if key_remap is not None:
         state["state_dict"] = {key_remap(k): v for k, v in state["state_dict"].items()}
 
@@ -887,8 +838,10 @@ def load_checkpoint(ctx: TrainingContext, step="last", key_remap=None) -> Tuple[
     # ctx.optimizer.load_state_dict(state["optimizer"])
     
     # === EMA ===
+    ctx.ema_loaded_from_checkpoint = False
     if ctx.use_ema and "ema" in state:
-        ctx.ema.shadow = {k: v.clone() for k, v in state["ema"].items()}
+        ctx.ema.shadow = {k: v.clone().double() for k, v in state["ema"].items()}
+        ctx.ema_loaded_from_checkpoint = True
         # Debug: check if shadow == network params at load time
         key = next(iter(ctx.ema.shadow))
         diff = (ctx.ema.shadow[key] - ctx.network.state_dict()[key]).norm().item()
@@ -985,7 +938,7 @@ def print_model_and_params(ctx: TrainingContext):
     ctx.logger.info("\n".join(s))
 
 def main(): 
-    ctx = TrainingContext(step = "last")
+    ctx = TrainingContext()
     with ctx as _:
         print_cmd_line_and_save_args(ctx)
         print_model_and_params(ctx)

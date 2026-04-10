@@ -275,7 +275,7 @@ class EnergyModel(Model):
             data_score, noise_score = scores  # (B..., D...), (B..., D...)
             denoised = x.noisy - apply_power_to_list_covariances(x.noise_covariance, data_score, p=1)  # (B..., D...)
         else:
-            energy = self.network_forward(*input_tensors)
+            energy = self.network_forward(type_cov_tensor, noisy, t_input)
             data_score = None
             noise_score = None
             denoised = None
@@ -375,7 +375,12 @@ class Reparameterization(nn.Module):
         output = scale(output, self.final_scaling)
 
         if self.additive_normalization:
-            output = output + self.dataset_info.dimension * torch.log(t) / 2
+            if t.ndim > 1:
+                # Anisotropic: t is (B, C, H, W) covariance matrix — add 0.5*Σ_i log(2π*Σ_{t,ii})
+                import math
+                output = output + 0.5 * torch.sum(torch.log(2 * math.pi * t), dim=tuple(range(1, t.ndim)))
+            else:
+                output = output + self.dataset_info.dimension * torch.log(t) / 2
 
         return output
 

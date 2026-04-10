@@ -42,6 +42,10 @@ def load_exp(name, step="last", log=True, dataloaders=False):
     if log:
         print(f"{name}: retrieved model at step {ctx.step}")
 
+    # === APPLY EMA HERE ===
+    if getattr(ctx, "ema_loaded_from_checkpoint", False):
+        ctx.ema.apply_shadow(ctx.network)
+
     # Put in eval mode and disable gradients with respect to all parameters.
     ctx.model.eval()
     for p in ctx.model.parameters():
@@ -105,7 +109,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, required=False, choices=['CIFAR10', 'Celeba', 'ImageNet64', 'AFHQ'])
 
     # range(0, 10)
-    for seed in [20]:
+    for seed in [0]:
         # Seed parameterers
         seed = seed#20
         torch.manual_seed(seed)
@@ -138,10 +142,10 @@ if __name__ == "__main__":
                 "Energy-Dual": load_exp("multigpu/all_together/energy_song_dual_truncatedFreq_imagenet", step = step),
             }
         elif args_cmd.dataset == "AFHQ":
-            args = load_args("multigpu/all_together/energy_song_dual_truncatedFreq_afhq_192", step = "best")
+            args = load_args("multigpu/all_together/energy_song_dual_truncatedFreq_afhq_cat_192", step = "best")
             step = "last"
             ctxs = {
-                "Energy-Dual": load_exp("multigpu/all_together/energy_song_dual_truncatedFreq_afhq_192", step = step),
+                "Energy-Dual": load_exp("multigpu/all_together/energy_song_dual_truncatedFreq_afhq_cat_192", step = step),
             }
 
         # Load metrics
@@ -158,7 +162,7 @@ if __name__ == "__main__":
         d = dataset_info.dimension
 
         # Load data 
-        test_batch_size = 3 # 20
+        test_batch_size = 16 # 20
         if args_cmd.dataset == "AFHQ":
             img_size = 192
         else:
@@ -167,37 +171,37 @@ if __name__ == "__main__":
         
         train_dataloader, test_dataloader, dataset_info = load_data(
             dataset=args["dataset"], spatial_size=args["spatial_size"], grayscale=args["grayscale"], horizontal_flip=False, data_subset=eval(args["data_subset"]),
-            train_batch_size=test_batch_size, test_batch_size=test_batch_size, num_workers=args["num_workers"], seed=seed #2
+            train_batch_size=test_batch_size, test_batch_size=test_batch_size, num_workers=args["num_workers"], seed=20 #2
         )
 
     
         # Sampling and noise parameters
-        sigma_begin = 10 #best 8
-        sigma_end = 1e-3 #1e-2 
+        sigma_begin = 0.01 #best 8
+        sigma_end = 1e-6 #1e-2 
         num_classes = 1000 #400
         sigma_dist = 'geometric'
-        sigma_measurement = 1e-3
+        sigma_measurement = 1e-2    
         sigmas = get_sigmas(sigma_begin, sigma_end, num_classes, device, sigma_dist)
         
-        n_steps_each = 1
+        n_steps_each = 0
         batch_size = test_batch_size
-        snr = 0.15 #0.13 #0.2
+        snr = 0.12 #0.13 #0.2
         temp = 1.0 #1
         blind = False
-        sampler = "PC" #PC_adaptive, PC_mala 
+        sampler = "PC" #adaptive, PC_adaptive, PC_mala
 
         # Parameters of the degradation
         sigma_box_init = sigma_begin**2
-        domain = 'pixel' #'freq' #
+        domain = 'freq' #'freq' #
         inp_mask_type = "box"
-        box_size = 25 #13
+        box_size = 50 #30
         # For domain = 'freq'
-        kernel_size = 4
+        kernel_size = 8
         kernel_std = 0.8
 
         if inp_mask_type == "random":
             total_pixels = img_size * img_size
-            n_missing = int(0.7 * total_pixels)
+            n_missing = int(0.2 * total_pixels)
             missing_indices = torch.randperm(total_pixels, device=device)[:n_missing]
             torch.save(missing_indices, "missing_indices.pt")
             
@@ -210,8 +214,9 @@ if __name__ == "__main__":
         idx_img = 0
         if domain == "freq":
             # deblurring_id = deblurring_covariance_from_shape(spatial_size=img_size, kernel_size=kernel_size, kernel_std=kernel_std, device=device, noise_level=1)
-            # cov = deblurring_covariance_from_shape(spatial_size=img_size, kernel_size=kernel_size, kernel_std=kernel_std, device=device, noise_level=sigma_begin**2)
-            cov = sr_covariance_from_shape(spatial_size=img_size, kernel_size=kernel_size, device=device, noise_level=1)    
+            cov = deblurring_covariance_from_shape(spatial_size=img_size, kernel_size=kernel_size, kernel_std=kernel_std, device=device, noise_level=1)
+            # cov = torch.load('motion_kernel.pt', weights_only=False)
+            # cov = sr_covariance_from_shape(spatial_size=img_size, kernel_size=kernel_size, device=device, noise_level=1)    
         else:
             # cov = spatial_corr_covariance_testing(spatial_size=img_size, box_size=box_size, var_box=sigma_box_init, device=device, var_clean = sigma_clean_init, half_box_size = box_size, inp_mask_type=inp_mask_type)
             cov = spatial_corr_covariance_testing(spatial_size=img_size, box_size=box_size, var_box=0, device=device, var_clean = 1, half_box_size = box_size, inp_mask_type=inp_mask_type, missing_indices_input=missing_indices)
@@ -225,12 +230,14 @@ if __name__ == "__main__":
         mse = 0
         lpips_ = 0
 
-        gamma_cov = str(0.6) + "snr" + str(snr) + "box_25" #"dual_test" # + "posterior_exp" + str(idx_img) #6e-2
+        gamma_cov = str(0.6) + "snr" + str(snr) + "Gaussian_double_check" # + "posterior_exp" + str(idx_img) #6e-2
         batch_idx_post = seed
         dataset_name = args["dataset"]
-        if not Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}").exists():
-            Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}").mkdir(parents=True)
+        if not Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}_{sigma_begin}").exists():
+            Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}_{sigma_begin}").mkdir(parents=True)
         for batch_idx, images in enumerate(test_dataloader):
+            # if batch_idx < 4:
+            #     continue
             clean_images = images[0][idx_img:idx_img+batch_size,:,:,:].cuda()
             for model_, ctx in ctxs.items():
 
@@ -240,7 +247,7 @@ if __name__ == "__main__":
                 
                 if domain == "freq":
                     x_deblur = cov.apply_power(clean_images, p = -0.5)
-                    x_init = cov.apply_power(x_deblur + 0.01 * torch.randn_like(images[0][0:batch_size,:,:,:]).cuda(), p = 0.5)
+                    x_init = cov.apply_power(x_deblur + sigma_measurement * torch.randn_like(images[0][0:batch_size,:,:,:]).cuda(), p = 0.5)
                     # x_init = x_init
                 else:
                     # x_init = clean_images + cov.apply_power(torch.randn_like(clean_images).cuda(), p=0.5)
@@ -255,12 +262,16 @@ if __name__ == "__main__":
 
                 # Run sampler
                 if sampler == "PC":
+                    start_time = time.perf_counter()
                     x = PC_sampler(x_init, ctx.model, sigmas, n_steps_each=n_steps_each, final_only=True,
                                 inp_mask_type=inp_mask_type, temp = temp, box_size = box_size_hat,
                                 snr = snr, domain = domain, kernel_size = kernel_size, kernel_std = kernel_std, device = device, missing_indices = missing_indices)
-                elif sampler == "adaptive":           
-                    x = adaptive_sampler(x_init, ctx.model, sigma_init = sigma_begin, n_updates = 1000 , n_steps_each=1, step_cov_update = 1.5e-2, 
-                        temp = 0.75, final_only=True, inp_mask_type=inp_mask_type, box_size = box_size, device = device, missing_indices = missing_indices)
+                    end_time = time.perf_counter()
+                    elapsed_time = end_time - start_time
+                    print(f"Execution time: {elapsed_time:.6f} seconds")
+                elif sampler == "adaptive":
+                    x = adaptive_sampler(x_init, ctx.model, sigma_init = sigma_begin, n_updates = 1000 , n_steps_each=5, step_cov_update = 25e-3,
+                        temp = 0.5, final_only=True, inp_mask_type=inp_mask_type, box_size = box_size, device = device, missing_indices = missing_indices)
                 elif sampler == 'PC_adaptive':
                     x = PC_sampler_adapted(x_init, ctx.model, sigmas, n_steps_each=n_steps_each, final_only=True,
                                 inp_mask_type=inp_mask_type, temp = temp, box_size = box_size_hat,
@@ -277,7 +288,7 @@ if __name__ == "__main__":
                     'y': x_init,
                     'x': clean_images[0],
                 }
-                torch.save(ald_data, f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}/samples_posterior_{batch_idx}.pt")
+                torch.save(ald_data, f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}_{sigma_begin}/samples_posterior_{batch_idx}.pt")
                 
                 mse_batch = torch.mean((images[0][idx_img:idx_img+batch_size,:,:,:] - samples[0:batch_size])**2, dim=(-1, -2, -3)).sum() 
                 for ii in range(batch_size):
@@ -302,11 +313,11 @@ if __name__ == "__main__":
                 nrow = 16
                 # grid = torchvision.utils.make_grid(clean_images.cuda().cpu(), nrow=nrow, padding=2)
                 # grid_clean = grid.permute(1, 2, 0).numpy()
-                if not Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}/clean").exists():
-                    Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}/clean").mkdir(parents=True)
+                if not Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}_{sigma_begin}/clean").exists():
+                    Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}_{sigma_begin}/clean").mkdir(parents=True)
                 for ii in range(clean_images.shape[0]):
                     # Save img individually
-                    torchvision.utils.save_image(clean_images[ii:ii+1], f'samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}/clean/clean_image_batch{batch_idx}_img{ii}.png', normalize=False)
+                    torchvision.utils.save_image(clean_images[ii:ii+1], f'samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}_{sigma_begin}/clean/clean_image_batch{batch_idx}_img{ii}.png', normalize=False)
                 
 
                 # # Display the grid
@@ -335,11 +346,11 @@ if __name__ == "__main__":
                 # plt.savefig(f'samples/noisy_images_batch_{batch_idx}.pdf')
             
                 samples = torch.clamp(x_lists[f'samples_{ctxs["Energy-Dual"].args.model}'], 0.0, 1.0)
-                if not Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}/generated").exists():
-                    Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}/generated").mkdir(parents=True)
+                if not Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}_{sigma_begin}/generated").exists():
+                    Path(f"samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}_{sigma_begin}/generated").mkdir(parents=True)
                 for ii in range(samples.shape[0]):
                     # Save img individually
-                    torchvision.utils.save_image(samples[ii:ii+1], f'samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}/generated/sample_batch{batch_idx}_img{ii}.png', normalize=False)
+                    torchvision.utils.save_image(samples[ii:ii+1], f'samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}_{sigma_begin}/generated/sample_batch{batch_idx}_img{ii}.png', normalize=False)
                 
                 grid = torchvision.utils.make_grid(samples, nrow=nrow, padding=2, normalize=False)
                 grid_np = grid.permute(1, 2, 0).numpy()
@@ -350,7 +361,7 @@ if __name__ == "__main__":
                 plt.axis('off') # Hide axes
                 # plt.title("Generated images - Energy")
                 plt.tight_layout()
-                plt.savefig(f'samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}/generated/generated_sample_batch_energy_{model_}_{batch_idx}_ula.pdf')
+                plt.savefig(f'samples/{dataset_name}_{box_size}_{gamma_cov}_{sampler}_{domain}_{sigma_begin}/generated/generated_sample_batch_energy_{model_}_{batch_idx}_ula.pdf')
             
             print("MSE total", mse / (batch_size * (batch_idx+1)))
             print("LPIPS total", lpips_ / (batch_size * (batch_idx+1)))

@@ -4,6 +4,8 @@ import numpy as np
 import torch
 
 import scipy
+from motionblur.motionblur import Kernel
+
 
 
 def build_half_mask(spatial_size, device, var_up, half_box_size, var_down=1e-3):
@@ -300,6 +302,12 @@ class Blurkernel(torch.nn.Module):
             self.k = k
             for name, f in self.named_parameters():
                 f.data.copy_(k)
+        elif self.blur_type == "motion":
+            k = Kernel(size=(self.kernel_size, self.kernel_size), intensity=self.std).kernelMatrix
+            k = torch.from_numpy(k)
+            self.k = k
+            for name, f in self.named_parameters():
+                f.data.copy_(k)
 
     def update_weights(self, k):
         if not torch.is_tensor(k):
@@ -417,6 +425,68 @@ class DownSampling(torch.nn.Module):
         # Compute the inverse filter
         # The inverse filter is the complex conjugate of the original filter
         # divided by the magnitude squared (plus epsilon)
+        inverse_filter_fourier = torch.conj(f_kernel) / stabilized_denominator
+
+        return inverse_filter_fourier
+        
+class MotionBlurOperator():
+    def __init__(self, kernel_size, intensity, device):
+        self.device = device
+        self.kernel_size = kernel_size
+        self.conv = Blurkernel(blur_type='motion',
+                               kernel_size=kernel_size,
+                               std=intensity,
+                               device=device).to(device)
+
+        self.kernel_obj = Kernel(size=(kernel_size, kernel_size), intensity=intensity)
+        # Convert kernelMatrix to torch tensor immediately for consistency
+        self.k = torch.tensor(self.kernel_obj.kernelMatrix, dtype=torch.float32, device=self.device)
+        self.conv.update_weights(self.k)
+    
+    def forward(self, data, **kwargs):
+        return self.conv(data)
+
+    def transpose(self, data, **kwargs):
+        # Note: For a true transpose (adjoint) in Fourier space, 
+        # this would usually involve the complex conjugate of the kernel.
+        return data
+
+    def get_kernel(self):
+        """Returns the kernel reshaped for convolution layers."""
+        return self.k.view(1, 1, self.kernel_size, self.kernel_size)
+
+    def get_fourier(self, img_dim):
+        """Computes the FFT of the kernel padded to image dimensions."""
+        kernel_padded = torch.zeros((img_dim, img_dim), device=self.device)
+        # Place kernel in top-left
+        kernel_padded[:self.kernel_size, :self.kernel_size] = self.k
+        
+        # Circular shift to align kernel center with (0,0) for correct FFT phase
+        kernel_padded = torch.fft.ifftshift(kernel_padded)
+        
+        k_fourier = torch.fft.fft2(kernel_padded, dim=[-1, -2])
+        return k_fourier
+    
+    def get_fourier_shift(self, img_dim):
+        """Computes shifted FFT for visualization (zero-frequency in center)."""
+        k_fourier = self.get_fourier(img_dim)
+        return torch.fft.fftshift(k_fourier, dim=[-1, -2])
+
+    def get_inverse_fourier(self, img_dim):
+        """Basic inverse filter: 1 / H(u,v)"""
+        f_kernel = self.get_fourier(img_dim)
+        return f_kernel ** -1
+    
+    def get_inverse_reg_fourier(self, img_dim, epsilon=1e-8):
+        """
+        Computes the Tikhonov-regularized inverse (Wiener-like).
+        Formula: H* / (|H|^2 + epsilon)
+        """
+        f_kernel = self.get_fourier(img_dim)
+        f_kernel_mag_sq = torch.abs(f_kernel)**2
+        
+        # Add epsilon to avoid division by zero
+        stabilized_denominator = f_kernel_mag_sq + epsilon
         inverse_filter_fourier = torch.conj(f_kernel) / stabilized_denominator
 
         return inverse_filter_fourier

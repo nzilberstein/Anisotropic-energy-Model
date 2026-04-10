@@ -10,7 +10,6 @@ from tensor_ops import rand_power_uniform, rand_uniform, rand_log_uniform, to_te
 from trackers import TimeTracker
 from covariance_generation import *
 
-import deepinv as dinv
 import pdb
 
 
@@ -363,6 +362,31 @@ def deblurring_covariance_from_shape(spatial_size: int, kernel_size: float, kern
     # pdb.set_trace()
     return StationaryCovariance(noise_level * fourier_inv_blur_kernel)
 
+def motion_deblurring_covariance_from_shape(
+    spatial_size: int, 
+    kernel_size: int, 
+    intensity: float, 
+    device: torch.device, 
+    noise_level: torch.Tensor,
+    epsilon: float = 1e-6
+) -> Covariance:
+    """
+    Computes the covariance for motion deblurring in the Fourier domain.
+    
+    Args:
+        spatial_size: The side length of the square image.
+        kernel_size: Size of the motion blur kernel.
+        intensity: The 'std' or strength of the motion blur.
+        device: torch.device (cpu or cuda).
+        noise_level: The variance of the additive noise.
+        epsilon: Regularization parameter for the inverse filter.
+    """
+    op = MotionBlurOperator(kernel_size=kernel_size, intensity=intensity, device=device)
+    fourier_inv_filter = op.get_inverse_reg_fourier(img_dim=spatial_size, epsilon=epsilon)
+    fourier_inv_kernel_psd = fourier_inv_filter.abs() ** 2
+    fourier_inv_kernel_psd = fourier_inv_kernel_psd.to(device)
+    return StationaryCovariance(noise_level * fourier_inv_kernel_psd)
+
 def sr_covariance_from_shape(spatial_size: int, kernel_size: float,device: torch.device, noise_level: torch.Tensor) -> Covariance:
     sr_kernel = DownSampling(kernel_size=kernel_size)
     fourier_inv_sr_kernel = sr_kernel.get_inverse_reg_fourier(img_dim=spatial_size, epsilon = 1e-6).abs() ** 2
@@ -387,6 +411,12 @@ class SpatialCorrCovariance(Covariance):
         """ Returns the covariance matrix in pixel space, of shape (C, H, W). """
         return self.matrix ** -1
     
+    def apply_difference(self, x: torch.Tensor) -> torch.Tensor:
+        """Returns ½(Σ⁻¹ - z²) elementwise, the target for the dual (noise-score) loss.
+        x is Σ⁻¹ε of shape (1, C, H, W); result broadcasts to the same shape."""
+        phi_inv = self.matrix ** -1  # (H, W) or (C, H, W)
+        return 0.5 * (phi_inv - x ** 2)
+
     def get_type(self) -> str:
         """ Returns the type of the covariance. """
         return "spatial"
@@ -501,7 +531,7 @@ class MixedCovariance(Covariance):
 def sample_covariances_from_distribution(batch_size: int, spatial_size: int, noise_level: NoiseLevel) -> List[Covariance]:
     covariances = []
     for i in range(batch_size):
-        type_cov = 1 #torch.randint(0, 2, (1,)).item()
+        type_cov = torch.randint(0, 2, (1,)).item()
         if type_cov == 0:
             kernel_size = 8 #8 #61  #torch.randint(1, 10, (1,)).item()  # Sample alpha from [0, 5]
             kernel_std = 0.8 #0.8 #3.0  #torch.rand(1).item()  # Sample c from [0.01, 1]
@@ -511,16 +541,16 @@ def sample_covariances_from_distribution(batch_size: int, spatial_size: int, noi
             covariance_spatial = spatial_corr_covariance(spatial_size=spatial_size, box_size=0, var_box=0, device="cuda", var_clean=0, half_box_size=0)
             covariances.append(MixedCovariance(covariance_freq=covariance_freq, covariance_spatial=covariance_spatial))
         elif type_cov == 1:
-            # box_size = torch.randint(low=1, high=spatial_size+1, size=(1,)).item()  # Random box size between 1 and spatial_size
-            # half_box_size =  torch.randint(low=0, high=spatial_size+1, size=(1,)).item()
-            box_size = torch.randint(low=20, high=50, size=(1,)).item()  # Random box size between 1 and spatial_size
-            half_box_size =  torch.randint(low=20, high=50, size=(1,)).item()
+            box_size = torch.randint(low=1, high=spatial_size+1, size=(1,)).item()  # Random box size between 1 and spatial_size
+            half_box_size =  torch.randint(low=0, high=spatial_size+1, size=(1,)).item()
+            # box_size = torch.randint(low=20, high=50, size=(1,)).item()  # Random box size between 1 and spatial_size
+            # half_box_size =  torch.randint(low=20, high=50, size=(1,)).item()
             # box_size = torch.randint(low=60, high=128, size=(1,)).item()  # Random box size between 1 and spatial_size
             # half_box_size =  torch.randint(low=60, high=128, size=(1,)).item()
             noise_var = noise_level.variance[i].flatten().item()
             noise_var_clean = noise_level.variance[i+1].flatten().item()
             # covariance_spatial = spatial_corr_covariance(spatial_size=spatial_size, box_size=box_size, var_box=noise_var, device="cuda", var_clean=noise_var_clean)
-            covariance_spatial = spatial_corr_covariance(spatial_size=spatial_size, box_size=box_size, var_box=noise_var, half_box_size = half_box_size, device="cuda", var_clean=noise_var_clean)
+            covariance_spatial = spatial_corr_covariance(spatial_size=spatial_size, box_size=box_size, var_box=noise_var, half_box_size = half_box_size, device="cuda", var_clean=noise_var)
             covariance_freq = power_law_covariance_from_shape(spatial_size=spatial_size, alpha=2.3, c=0.1, device="cuda", noise_level=0)
             covariances.append(MixedCovariance(covariance_freq=covariance_freq, covariance_spatial=covariance_spatial))
     return covariances

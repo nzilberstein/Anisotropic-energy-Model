@@ -17,7 +17,7 @@ def PC_sampler(x_mod, scorenet, sigmas,
                 device = 'cpu', missing_indices = None):
     
     images = []
-    var_clean = 1e-9**2
+    var_clean = 1e-7**2
     H = x_mod.shape[-1]
     batch_size = x_mod.shape[0]
     covariance_id = [spatial_corr_covariance_testing(spatial_size=H, box_size=box_size, var_box=1, device=device, var_clean = 0, inp_mask_type=inp_mask_type, half_box_size = box_size, missing_indices_input=missing_indices)]
@@ -32,8 +32,8 @@ def PC_sampler(x_mod, scorenet, sigmas,
             sigma_next = sigmas[c+1]
             
             if domain == "freq":
-                # covariance = [deblurring_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, kernel_std=kernel_std, device=device, noise_level=sigma_curr**2)] * batch_size
-                covariance = [sr_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, device=device, noise_level=sigma_curr**2)] * batch_size
+                covariance = [deblurring_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, kernel_std=kernel_std, device=device, noise_level=sigma_curr**2)] * batch_size
+                # covariance = [sr_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, device=device, noise_level=sigma_curr**2)] * batch_size
             else:
                 covariance = [spatial_corr_covariance_testing(spatial_size=H, box_size=box_size, var_box=sigma_curr**2, device=device, var_clean = var_clean, inp_mask_type=inp_mask_type, half_box_size = box_size, missing_indices_input=missing_indices)] * batch_size
                 # covariance = [spatial_corr_covariance_testing(spatial_size=H, box_size=box_size, var_box=var_clean, device=device, var_clean = sigma_curr**2, inp_mask_type=inp_mask_type, half_box_size = box_size)] * batch_size
@@ -44,10 +44,10 @@ def PC_sampler(x_mod, scorenet, sigmas,
 
             diff = sigma_curr**2 - sigma_next**2
             if domain == "freq":
-                # covariance_step = [deblurring_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, kernel_std=kernel_std, device=device, noise_level=diff)] * batch_size
-                # covariance_step_noise = [deblurring_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, kernel_std=kernel_std, device=device, noise_level=diff)] * batch_size
-                covariance_step = [sr_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, device=device, noise_level=diff)] * batch_size
-                covariance_step_noise = [sr_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, device=device, noise_level=diff)] * batch_size
+                covariance_step = [deblurring_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, kernel_std=kernel_std, device=device, noise_level=diff)] * batch_size
+                covariance_step_noise = [deblurring_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, kernel_std=kernel_std, device=device, noise_level=diff)] * batch_size
+                # covariance_step = [sr_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, device=device, noise_level=diff)] * batch_size
+                # covariance_step_noise = [sr_covariance_from_shape(spatial_size=H, kernel_size=kernel_size, device=device, noise_level=diff)] * batch_size
             else:
                 covariance_step = [spatial_corr_covariance_testing(spatial_size=H, box_size=box_size, var_box=diff, device=device, var_clean = var_clean, inp_mask_type=inp_mask_type, half_box_size = box_size, missing_indices_input=missing_indices)] * batch_size
                 covariance_step_noise = [spatial_corr_covariance_testing(spatial_size=H, box_size=box_size, var_box=(diff * sigma_next ** 2) / sigma_curr ** 2, device=device, var_clean = var_clean, inp_mask_type=inp_mask_type, half_box_size = box_size, missing_indices_input=missing_indices)] * batch_size
@@ -674,7 +674,7 @@ def PC_sampler_adapted(x_mod, scorenet, sigmas,
 #         else:
 #             return images
 
-def adaptive_sampler(x_mod, scorenet, sigma_init, n_updates = 1000 ,n_steps_each=3, step_lr=1, step_cov_update = 1.5e-2, 
+def adaptive_sampler(x_mod, scorenet, sigma_init, n_updates = 1000 ,n_steps_each=3, step_lr=1, step_cov_update = 1.5e-2,
                      temp = 1, final_only=False, inp_mask_type="half", box_size = 12, device = 'cpu', missing_indices = None):
 
 
@@ -685,25 +685,25 @@ def adaptive_sampler(x_mod, scorenet, sigma_init, n_updates = 1000 ,n_steps_each
     img_size = x_mod.shape[-1]
     batch_size = x_mod.shape[0]
     
-    covariance = [spatial_corr_covariance_testing(spatial_size=img_size, box_size=box_size, var_box=sigma_init**2, device=device, var_clean = 1e-7, half_box_size = box_size, inp_mask_type=inp_mask_type)] * batch_size
+    covariance = [spatial_corr_covariance_testing(spatial_size=img_size, box_size=box_size, var_box=sigma_init**2, device=device, var_clean = 1e-7**2, half_box_size = box_size, inp_mask_type=inp_mask_type)] * batch_size
     
     # covariance = [spatial_corr_covariance_testing(spatial_size=H, box_size=17, var_box=1e-7, device=device, var_clean = sigmas[0]**2, half_box_size = half_box_size, inp_mask_type=inp_mask_type)] * batch_size    
     cov_sample = covariance[0].get_matrix()
     cov_sample = cov_sample[None, None, :,:].repeat(batch_size, 1, 1, 1)
-    # current_variance = sigmas[0]
+    current_variance = sigma_init
     noise_level = NoiseLevel(variance=sigma_init**2)
     energy_values = torch.zeros(n_updates, batch_size)
     clamp_val = 5e1
 
     with torch.no_grad():
         for c_ in range(n_updates):
-            step_size = step_lr
             input = ModelInput(noisy=x_mod, noise_level=noise_level, covariance=covariance)
             model_output = scorenet.forward(input, create_graph = False)
             # Calculate gradients
             grad = -model_output.data_score
             grad_cov = -model_output.noise_score
             grad_cov = grad_cov.sign() * torch.clamp(grad_cov, min=-clamp_val, max=clamp_val) # Clamp to a large but not infinite value
+            # grad_cov = grad_cov.sign() * torch.clamp(grad_cov.abs(), max=clamp_val)
             # grad_cov = grad_cov.sign() * grad_cov / (grad_cov.norm() + 1e-8)
             energy_values[c_, :] = model_output.energy
             # energy_old = energy_values[c_, :]
@@ -742,7 +742,7 @@ def adaptive_sampler(x_mod, scorenet, sigma_init, n_updates = 1000 ,n_steps_each
                 model_output = scorenet.forward(input, create_graph = False)
                 
                 grad = -model_output.data_score
-                grad_cov = model_output.noise_score
+                # grad_cov = model_output.noise_score
 
                 # TODO: use the built in function apply power from batch.
                 for bss in range(batch_size):  
@@ -778,8 +778,8 @@ def adaptive_sampler(x_mod, scorenet, sigma_init, n_updates = 1000 ,n_steps_each
 
             assert (cov_sample >= 0).all(), "Error: Covariance matrix is not PSD!"
 
-            if cov_sample.max() < 5:
-                step_cov_update = 5e-2
+            # if cov_sample.max() < 5:
+            #     step_cov_update = 5e-2
             
             if c_ % 100 == 0:                
                 # nrow = 8

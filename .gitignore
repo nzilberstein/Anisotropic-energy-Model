@@ -9,11 +9,18 @@ build/
 
 # Jupyter
 .ipynb_checkpoints/
+energy_histogram.ipynb
 
 # Large data & experiment outputs
 data/
 models/
 samples/
+outputs/
+plots/
+
+# Scratch / personal notes
+info_sampling_hyper.txt
+playground/
 
 # Large file types
 *.pt

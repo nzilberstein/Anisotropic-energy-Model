@@ -69,7 +69,19 @@ Adjust this path to match your own environment.
 
 ## Datasets
 
-All datasets are expected under `~/datasets/` (configured in `data.py`). The following datasets are supported:
+Before running, **edit the dataset root path in `data.py`** (and in `isotropic_exp/data.py` / `autoregressive_exp/data.py` if using those sub-experiments). Look for the line:
+
+```python
+root = "/mnt/home/.../datasets"
+```
+
+and replace it with your own dataset directory, e.g.:
+
+```python
+root = "/path/to/your/datasets"
+```
+
+The following datasets are supported:
 
 | Dataset | `--dataset` flag | Resolution | Notes |
 |---|---|---|---|
@@ -92,7 +104,7 @@ Pre-trained checkpoints are stored under `models/multigpu/all_together/`:
 | CIFAR-10 | `multigpu/all_together/energy_song_dual_truncatedFreq_CIFAR10_2` |
 | CelebA | `multigpu/all_together/energy_song_dual_truncatedFreq_celeba` |
 | ImageNet-64 | `multigpu/all_together/energy_song_dual_truncatedFreq_imagenet` |
-| AFHQ 192 | `multigpu/all_together/energy_song_dual_truncatedFreq_afhq_192` |
+| AFHQ 192 | `multigpu/all_together/energy_song_dual_truncatedFreq_afhq_cat_192` |
 
 ### Running interactively (SLURM)
 

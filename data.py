@@ -43,6 +43,7 @@ def get_dataset_info(dataloader: DataLoader, num_samples: int = 1000) -> Dataset
     tracker = BatchCovarianceTracker()
     for x in dataloader:  # (B, C, H, W)
         # Drop class/other information if provided in dataset.
+        print(x)
         if isinstance(x, (tuple, list)):
             x = x[0]
         x = x.cuda()
@@ -128,12 +129,13 @@ def get_dataset(dataset: str, transform: transforms.Transform, train: bool, load
                     transform=transform,
                     download=False
                 )
-            elif dataset == "GaussianMixture2D":
+            elif dataset == "Gaussian8x8":
+                            # Instantiate the GaussianMixture8x8 class we adapted
                 dataset = dataset_class[dataset](
                     root=root,
                     train=train,
-                    transform=None,
-                    download=True
+                    transform=transform,
+                    download=False
                 )
             else:
                 dataset = dataset_class[dataset](
@@ -220,6 +222,11 @@ def get_transform(spatial_size: Optional[int], grayscale=False, horizontal_flip=
             transforms.ToImage(),
             transforms.ToDtype(torch.float32, scale=True),  # converts to float [0, 1]
         ])))  
+    elif dataset == "Gaussian8x8":
+        return transforms.Compose(list(filter(None, [
+            transforms.ToImage(),
+            transforms.ToDtype(torch.float32, scale=True),
+        ])))
     elif dataset != "CIFAR10":
         return transforms.Compose(list(filter(None, [
             transforms.Grayscale() if grayscale else None,
@@ -228,7 +235,7 @@ def get_transform(spatial_size: Optional[int], grayscale=False, horizontal_flip=
             transforms.RandomHorizontalFlip() if horizontal_flip else None,
             transforms.ToImage(),
             transforms.ToDtype(torch.float32, scale=True),  # converts to float [0, 1]
-        ])))  
+        ])))
     elif dataset == "GaussianMixture2D":
         return transforms.Compose(list(filter(None, [
             transforms.ToImage(),
@@ -525,94 +532,59 @@ class AFHQ(VisionDataset):
     def __len__(self):
         return len(self.samples)
 
-class GaussianMixture2D(VisionDataset):
+class GaussianMixture8x8(torch.utils.data.Dataset):
     """
-    2D Gaussian Mixture dataset loader.
-    Expected structure:
-    root/gaussian2d/
-        train/
-            component0/
-            component1/
-        val/
-            component0/
-            component1/
+    Direct loader for Gaussian Mixture 8x8.
+    Does not inherit from CIFAR10 to avoid string-path errors.
     """
-    
-    base_folder = "gaussian2d"
-    classes = ['component0', 'component1']
-    class_to_idx = {cls: idx for idx, cls in enumerate(classes)}
-    
-    def __init__(self, root, train=True, transform=None, target_transform=None, download=False):
-        super().__init__(root, transform=transform, target_transform=target_transform)
-        
-        self.train = train
-        split = 'train' if train else 'val'
-        self.data_dir = os.path.join(root, self.base_folder, split)
-        
-        # Load metadata
-        metadata_path = os.path.join(root, self.base_folder, 'metadata.pt')
-        if os.path.exists(metadata_path):
-            self.metadata = torch.load(metadata_path)
-        else:
-            self.metadata = None
-        
-        # Download/generate if needed
-        if download and not os.path.exists(self.data_dir):
-            self._generate_dataset(root)
-        
-        self.samples = self._load_samples()
+    base_folder = "gaussian_mixture_8x8"
+
+    def __init__(self, root, train=True, transform=None, download=False, **kwargs):
+        super().__init__()
+        self.root = Path(root)
         self.transform = transform
-        self.target_transform = target_transform
-    
-    def _generate_dataset(self, root):
-        """Generate dataset if download=True and data doesn't exist"""
-        print("Generating 2D Gaussian mixture dataset...")
-        generator = GaussianMixture2DGenerator()
-        generator.generate_dataset(root, n_train=10000, n_val=2000)
-    
-    def _load_samples(self):
-        """Load all sample paths"""
-        samples = []
-        for class_name in self.classes:
-            class_dir = os.path.join(self.data_dir, class_name)
-            if not os.path.isdir(class_dir):
-                continue
+        
+        # Load preprocessed file
+        file_name = "train.pt" if train else "test.pt"
+        file_path = self.root / self.base_folder / file_name
+        
+        if not file_path.exists():
+            raise FileNotFoundError(f"Data not found at {file_path}. Generate it first!")
             
-            class_idx = self.class_to_idx[class_name]
+        print(f"Loading Gaussian Mixture from {file_name}...")
+        
+        # Load the (N, 1, 8, 8) float32 tensor
+        self.data = torch.load(file_path, map_location='cpu')
+        
+        # Ensure it is a tensor (not a string or path)
+        if not isinstance(self.data, torch.Tensor):
+            self.data = torch.tensor(self.data)
             
-            for filename in sorted(os.listdir(class_dir)):
-                if filename.endswith('.pt'):
-                    filepath = os.path.join(class_dir, filename)
-                    samples.append((filepath, class_idx))
-        
-        return samples
-    
-    def __getitem__(self, index):
-        """Load a sample"""
-        filepath, target = self.samples[index]
-        
-        # Load 2D point
-        sample = torch.load(filepath)
-        
+        self.targets = torch.zeros(len(self.data), dtype=torch.long)
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __getitem__(self, index: int):
+        # 1. Get raw tensor: (1, 8, 8)
+        img = self.data[index]
+        target = self.targets[index]
+
+        # 2. To satisfy the transform pipeline (which expects PIL):
+        # We convert to PIL 'F' mode (32-bit float)
+        img_pil = transforms.functional.to_pil_image(img, mode='F')
+
+        # 3. Apply your transform (ToImage -> ToDtype)
         if self.transform is not None:
-            sample = self.transform(sample)
-        
-        if self.target_transform is not None:
-            target = self.target_transform(target)
-        
-        return sample, target
-    
-    def __len__(self):
-        return len(self.samples)
-    
-    def get_metadata(self):
-        """Return dataset metadata"""
-        return self.metadata
+            img = self.transform(img_pil)
+            
+        # IMPORTANT: img is now a torch.Tensor
+        return img, target
     
 dataset_class = dict(
     ImageNet32=ImageNet32, ImageNet64=ImageNet64, CIFAR10=torchvision.datasets.CIFAR10,
     Celeba=CelebaFast, MNIST=torchvision.datasets.MNIST,
-    AFHQ=AFHQ, GaussianMixture2D=GaussianMixture2D,
+    AFHQ=AFHQ, Gaussian8x8=GaussianMixture8x8,
     # torchvision.datasets.CelebA
     # CIFAR100=datasets.CIFAR100, MNIST=datasets.MNIST, ImageNet=datasets.ImageFolder,
 )

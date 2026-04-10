@@ -1,8 +1,38 @@
-sbatch --gres=gpu:8 -C "a100-80gb|h100" -t 7-00:00:00 job_fg.sbatch \
-    --name multigpu/all_together/energy_song_dual_truncatedFreq_afhq_cat_192 \
-    --dataset AFHQ \
+# sbatch --gres=gpu:8 -C "a100-80gb|h100" -t 7-00:00:00 job_fg.sbatch \
+#     --name multigpu/all_together/energy_song_dual_truncatedFreq_afhq_cat_192 \
+#     --dataset AFHQ \
+#     --no-grayscale \
+#     --train-batch-size 32 \
+#     --test-batch-size 4 \
+#     --network UNet \
+#     --network-kwargs "{'num_scales':3,'group_size':1,'num_layers_encoder_block':3,'num_layers_mid_block':3,'num_layers_decoder_block':3}" \
+#     --model EnergyModel \
+#     --reparam-kwargs "{'conversion':'inner_product'}" \
+#     --min-noise-level psnr=90 \
+#     --max-noise-level psnr=-30 \
+#     --noise-level-sampler UniformLog \
+#     --mse-var-exponent -1 \
+#     --train-noise-score 1 \
+#     --noise-score-var-exponent 1 \
+#     --lr 0.00005 \
+#     --num-training-steps 200000 \
+#     --lr-decay-every 100000 \
+#     --noise-covariance 1 \
+#     --size-network large \
+#     --no-adaptive-scale \
+#     --num-workers 8 \
+#     --num-acum-gradients 2 \
+#     --warmup-steps 0 \
+#     --use-ema \
+#     --ema-decay 0.9999 \
+#     --ema-update-every 1
+    # vs 16
+
+sbatch --gres=gpu:1 -C "a100-80gb|h100" -t 7-00:00:00 job_fg.sbatch \
+    --name multigpu/all_together/energy_song_dual_truncatedFreq_gaussian_iso \
+    --dataset Gaussian8x8 \
     --no-grayscale \
-    --train-batch-size 32 \
+    --train-batch-size 256 \
     --test-batch-size 4 \
     --network UNet \
     --network-kwargs "{'num_scales':3,'group_size':1,'num_layers_encoder_block':3,'num_layers_mid_block':3,'num_layers_decoder_block':3}" \
@@ -15,43 +45,13 @@ sbatch --gres=gpu:8 -C "a100-80gb|h100" -t 7-00:00:00 job_fg.sbatch \
     --train-noise-score 1 \
     --noise-score-var-exponent 1 \
     --lr 0.0002 \
-    --num-training-steps 200000 \
+    --num-training-steps 400000 \
     --lr-decay-every 100000 \
     --noise-covariance 1 \
-    --size-network large \
-    --no-adaptive-scale \
-    --num-workers 8 \
-    --num-acum-gradients 2 \
     --warmup-steps 0 \
-    --use-ema \
-    --ema-decay 0.9999 \
-    --ema-update-every 1
-    # vs 16
-
-# sbatch --gres=gpu:1 -C "a100-80gb|h100" -t 7-00:00:00 job_fg.sbatch \
-#     --name multigpu/all_together/energy_song_dual_truncatedFreq_gaussian \
-#     --dataset GaussianMixture2D \
-#     --no-grayscale \
-#     --train-batch-size 256 \
-#     --test-batch-size 4 \
-#     --network UNet \
-#     --network-kwargs "{'num_scales':3,'group_size':1,'num_layers_encoder_block':3,'num_layers_mid_block':3,'num_layers_decoder_block':3}" \
-#     --model EnergyModel \
-#     --reparam-kwargs "{'conversion':'inner_product'}" \
-#     --min-noise-level psnr=90 \
-#     --max-noise-level psnr=-30 \
-#     --noise-level-sampler UniformLog \
-#     --mse-var-exponent -1 \
-#     --train-noise-score 1 \
-#     --noise-score-var-exponent 1 \
-#     --lr 0.0002 \
-#     --num-training-steps 400000 \
-#     --lr-decay-every 100000 \
-#     --noise-covariance 1 \
-#     --warmup-steps 0 \
-#     --size-network large \
-#     --no-adaptive-scale \
-#     --num-workers 8
+    --size-network small \
+    --no-adaptive-scale \
+    --num-workers 8
 
     ## MISSING TRAIN NOISE SCORE
 
