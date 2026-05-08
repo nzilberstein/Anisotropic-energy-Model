@@ -6,12 +6,12 @@ This repository contains the official code for the paper **"Learning Normalized 
 
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/nzilberstein/Anisotropic-energy-Model-/main/teaser_figs/scheme_anisotropic.png" width="450" height="225">
+<img src="teaser_figs/scheme_anisotropic.png" width="450" height="225">
 </div>
 
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/nzilberstein/Anisotropic-energy-Model-/main/teaser_figs/log_p_main.png" width="450" height="225">
+<img src="teaser_figs/log_p_main.png" width="450" height="225">
 </div>
 
 
