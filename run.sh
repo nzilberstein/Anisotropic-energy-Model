@@ -35,7 +35,6 @@ sbatch --gres=gpu:1 -C "a100-80gb|h100" -t 7-00:00:00 job_fg.sbatch \
     --train-batch-size 256 \
     --test-batch-size 4 \
     --network UNet \
-    --network-kwargs "{'num_scales':3,'group_size':1,'num_layers_encoder_block':3,'num_layers_mid_block':3,'num_layers_decoder_block':3}" \
     --model EnergyModel \
     --reparam-kwargs "{'conversion':'inner_product'}" \
     --min-noise-level psnr=90 \

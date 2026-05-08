@@ -114,9 +114,9 @@ class TrainingContext:
             self.noise_covariance: Covariance = IdentityCovariance()
             self.noisy_sampler: NoisySampler = eval(args.noise_sampler)
 
-        network_kwargs = eval(args.network_kwargs)
-        if args.embed_noise_level_in_range:
-            network_kwargs.update(t_min=self.min_noise_level.variance, t_max=self.max_noise_level.variance)
+        # network_kwargs = eval(args.network_kwargs)
+        # if args.embed_noise_level_in_range:
+        #     network_kwargs.update(t_min=self.min_noise_level.variance, t_max=self.max_noise_level.variance)
         # network = eval(args.network)(dataset_info=self.dataset_info, **network_kwargs)
         if args.dataset == "ImageNet64" or args.dataset == "Celeba":
             if args.size_network == "small":
@@ -127,7 +127,6 @@ class TrainingContext:
                                 )
             elif args.size_network == "large":
                 network = SongUNet(img_resolution=64, in_channels=3, out_channels=3, channel_mult=[1,2,2,2])
-                # network = DhariwalUNet(img_resolution=64, in_channels=3, out_channels=3)
         elif args.dataset == "AFHQ":
             if args.size_network == "small":
                 network = SongUNet(img_resolution=192, in_channels=3, out_channels=3,
@@ -149,7 +148,6 @@ class TrainingContext:
                                 adaptive_scale = args.adaptive_scale
                                 )
             elif args.size_network == "large":
-                # network = SongUNet(img_resolution=32, in_channels=3, out_channels=3, adaptive_scale = args.adaptive_scale, channel_mult=[2,2,2],embedding_type = 'positional', encoder_type = 'residual', dropout = 0.13)
                 network = SongUNet(img_resolution=28, in_channels=1, out_channels=1, adaptive_scale = args.adaptive_scale)
         elif args.dataset == "Gaussian8x8":
             if args.size_network == "small":
@@ -171,7 +169,6 @@ class TrainingContext:
                                 adaptive_scale = args.adaptive_scale
                                 )
             elif args.size_network == "large":
-                # network = SongUNet(img_resolution=32, in_channels=3, out_channels=3, adaptive_scale = args.adaptive_scale, channel_mult=[2,2,2],embedding_type = 'positional', encoder_type = 'residual', dropout = 0.13)
                 network = SongUNet(img_resolution=32, in_channels=3, out_channels=3, adaptive_scale = args.adaptive_scale)
         network = Reparameterization(network, dataset_info=self.dataset_info, **eval(args.reparam_kwargs))  # Note: Reparameterization could be updated to deal with non-identity noise covariances.
         self.model: Model = eval(args.model)(network=network, dataset_info=self.dataset_info, **eval(args.model_kwargs))  # Puts on right device and uses DataParallel.
@@ -392,8 +389,8 @@ def compute_metrics(ctx, batch, output, train_test = "train"):
         z = apply_power_to_list_covariances(batch.noise_covariance, batch.noisy - expand(batch.clean), p=-1)
         phi_inv_minus_z = apply_inv_diff_tensor_from_list_covariances(batch.noise_covariance, z)
         e = apply_power_to_list_covariances(batch.noise_covariance, output.noise_score - phi_inv_minus_z, p=1)
-        noise_loss = torch.mean(e ** 2, dim=(-1, -2, -3)) / d #/ d # (B, ...)
-        metrics["norm_mse"] = noise_loss  # XXX: multiply by 4 for backwards compatibility
+        noise_loss = torch.mean(e ** 2, dim=(-1, -2, -3)) / d  (B, ...)
+        metrics["norm_mse"] = noise_loss 
         if ctx.args.train_noise_score is not None:
             loss = loss + ctx.args.train_noise_score * noise_loss
                     
@@ -634,37 +631,7 @@ def evaluate_on_dataloader(ctx: TrainingContext, loader: DataLoader, train_test:
     image = rescale_imgs(image, soft=True)
     image = rearrange(image, "n l c h w -> c (l h) (n w)")
     ctx.writer.add_image(f"denoising/{train_test}", image, ctx.step)
-
-    # Evaluate Jacobian of denoiser (disabled for now).
-    #     ctx.time_tracker.switch("jacobian")
-    #     if isinstance(ctx.model, DenoiserModel):
-    #         # Disable DataParallel for Jacobian.
-    #         jacobian = compute_jacobian(ctx.network, batch.noisy[index], batch.noise_level.variance[index], full_batch=False, symmetrize=True)  # (L, CHW, CHW)
-    #     elif isinstance(ctx.model, EnergyModel):
-    #         # Disable DataParallel for Hessian.
-    #         model_dp = ctx.model.network
-    #         ctx.model.network = model_dp.module
-    #         hessian = rearrange(ctx.model(input[index], compute_hessian=True).data_hessian, "l c1 h1 w1 c2 h2 w2 -> l (c1 h1 w1) (c2 h2 w2)")  # (L, CHW, CHW)
-    #         jacobian = torch.eye(hessian.shape[-1], device=hessian.device) - input[index].noise_level.variance[..., None, None] * hessian  # (L, CHW, CHW)
-    #         jacobian = DecomposedMatrix(jacobian, decomposition="eigh")  # (L, CHW, CHW)
-    #         ctx.model.network = model_dp
-    #     # Plot eigenvalues of Jacobian and Hessian
-    #     ctx.writer.add_figure(f"jacobian_eigenvalues/{train_test}", plot_jacobian_eigenvalues(
-    #         jacobian.eigenvalues, noise_levels=noise_levels_subset, unit=ctx.noise_unit,
-    #         ), ctx.step)
-    #     ctx.writer.add_figure(f"hessian_eigenvalues/{train_test}", plot_jacobian_eigenvalues(
-    #         (1 - jacobian.eigenvalues) / input[index].noise_level.variance[..., None], noise_levels=noise_levels_subset, unit=ctx.noise_unit, yscale="linear",
-    #         ), ctx.step)
-    #     # Plot eigenvectors.
-    #     ctx.writer.add_image(f"jacobian_eigenvectors/{train_test}", arrange_jacobian_eigenvectors(
-    #         jacobian, noise_levels=noise_levels_subset,
-    #     ), ctx.step)
-
-    # NOTE: we could plot statistics of the weights and optimizer state (running gradient mean and variances).
-    # Disabled for now (obsolete, would need to update merge with the above).
-    # ctx.time_tracker.switch("magnitudes")
-    # plot_magnitudes(ctx, batch)
-
+    
     return performance_info
 
 

@@ -108,7 +108,7 @@ def get_dataset(dataset: str, transform: transforms.Transform, train: bool, load
     """
     if dataset in dataset_class:
         # root = "/mnt/home/fguth/dataset" 
-        root = "/mnt/home/nzilberstein/datasets" #/datasets" #"data"
+        root = "/mnt/home/nzilberstein/datasets"
         if dataset == 'MNIST':
             path = Path(root) / "MNIST"
         else:
@@ -117,12 +117,6 @@ def get_dataset(dataset: str, transform: transforms.Transform, train: bool, load
 
         if load_dataset:
             if dataset == 'Celeba':
-                # dataset = dataset_class[dataset](
-                #     root=root,
-                #     split='train' if train else 'test',
-                #     transform=transform,
-                #     download=True
-                # )
                 dataset = dataset_class[dataset](
                     root=root,
                     train=train,
@@ -130,7 +124,6 @@ def get_dataset(dataset: str, transform: transforms.Transform, train: bool, load
                     download=False
                 )
             elif dataset == "Gaussian8x8":
-                            # Instantiate the GaussianMixture8x8 class we adapted
                 dataset = dataset_class[dataset](
                     root=root,
                     train=train,

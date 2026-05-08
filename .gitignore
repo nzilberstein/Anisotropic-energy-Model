@@ -17,6 +17,7 @@ models/
 samples/
 outputs/
 plots/
+sampling_release/
 
 # Scratch / personal notes
 info_sampling_hyper.txt

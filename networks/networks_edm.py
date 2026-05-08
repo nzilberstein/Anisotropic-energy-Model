@@ -738,10 +738,6 @@ class AnisotropicGammaEmbeddingNet(torch.nn.Module):
         elif self.embedding_type == 'fourier':
             self.fourier_embedding = FourierEmbedding(num_channels=self.fourier_dim)
 
-        # self.res_blocks = UNetBlock_embedding(in_channels=self.fourier_dim, out_channels=out_embedding_channels, attention=True, emb_channels=None, num_heads=1, dropout=0.0, skip_scale=1.0, eps=1e-6,
-        #                             resample_filter=[1,3,3,1], resample_proj=False, adaptive_scale=False,
-        #                             init=dict(init_mode='xavier_uniform'), init_zero=dict(init_mode='xavier_uniform', init_weight=1e-5), init_attn=None, anisotropic_noise=False, bin_spectrum=False)
-
     def forward(self, t_map):
         # pe_gamma_map: [B, D, H, W] (D is dim from positional encoding)
         b, c, h, w = t_map.shape

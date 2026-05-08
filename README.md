@@ -1,7 +1,18 @@
 # Normalized Energy Models for Linear Inverse Problems
 
 
-This repository contains the official code for the paper **"Normalized Energy Models for Linear Inverse Problems"**. The method learns an anisotropic energy model by training a covariance-conditioned denoiser, enabling both generative sampling and blind parameter estimation for linear inverse problems.
+This repository contains the official code for the paper **"Learning Normalized Energy Models for Linear Inverse Problems"** published at ICML 2026. The method learns an anisotropic energy model by training a covariance-conditioned denoiser, enabling both generative sampling and blind parameter estimation for linear inverse problems.
+
+
+
+<div align="center">
+<img src="https://github.com/nzilberstein/Anisotropic-energy-Model-/blob/main/teaser_figs/scheme_anisotropic.png" width="450" height="225">
+</div>
+
+
+<div align="center">
+<img src="https://github.com/nzilberstein/Anisotropic-energy-Model-/blob/main/teaser_figs/log_p_main.png" width="450" height="225">
+</div>
 
 
 
@@ -97,7 +108,7 @@ Images are expected to have pixel values in `[0, 1]` (applied automatically by t
 
 ## Running the Sampler with Pre-trained Models
 
-Pre-trained checkpoints are stored under `models/multigpu/all_together/`:
+Pre-trained checkpoints are stored under `models/multigpu/all_together/` (feel free to modify this):
 
 | Dataset | Checkpoint folder |
 |---|---|
@@ -149,6 +160,8 @@ samples/<dataset>_<box_size>_<gamma_cov>_<sampler>_<domain>/
     clean/                             # clean reference images
 ```
 
+We provide a notebook to show how to plot these images in utils/plot_images.ipynb
+
 ### Per-dataset recommended settings (from `info.txt`)
 
 **CelebA — box inpainting (box 45)**
@@ -194,7 +207,6 @@ sbatch --gres=gpu:8 -C "a100-80gb|h100" -t 7-00:00:00 job_fg.sbatch \
     --train-batch-size 32 \
     --test-batch-size 4 \
     --network UNet \
-    --network-kwargs "{'num_scales':3,'group_size':1,'num_layers_encoder_block':3,'num_layers_mid_block':3,'num_layers_decoder_block':3}" \
     --model EnergyModel \
     --reparam-kwargs "{'conversion':'inner_product'}" \
     --min-noise-level psnr=90 \
@@ -254,7 +266,7 @@ Training automatically resumes from the last checkpoint when `main.py` is re-run
 
 The notebooks in the root directory implement **blind estimation** of unknown degradation parameters using the learned normalized energy.
 
-### `blind_exp.ipynb` and `blind_exp_oficial.ipynb`
+### `blind_exp_oficial.ipynb`
 
 Both notebooks perform the same experiment; `blind_exp_oficial.ipynb` is the cleaner version used to generate paper figures.
 
@@ -276,10 +288,6 @@ Both notebooks perform the same experiment; `blind_exp_oficial.ipynb` is the cle
 
 **Running the notebooks:**
 
-```bash
-# From the repository root (so relative model paths resolve correctly)
-jupyter notebook blind_exp_oficial.ipynb
-```
 
 The notebook loads model `multigpu/all_together/energy_song_dual_truncatedFreq_celeba` by default. To switch to ImageNet, change the `load_args` / `load_exp` calls to `energy_song_dual_truncatedFreq_imagenet`.
 
@@ -303,8 +311,8 @@ This work builds on:
 ```bibtex
 @article{zilberstein2026,
   title={Normalized Energy Models for Linear Inverse Problems},
-  author={Zilberstein, Nicolas and Guth, Florentin and Segarra, Santiago and Simoncelli, Eero P},
-  journal={arXiv preprint arXiv:2506.XXXXX},
-  year={2025}
+  author={Zilberstein, Nicolas and Segarra, Santiago and Simoncelli, Eero P and Guth, Florentin},
+  journal={Int'l Conf Machine Learning (ICML)},
+  year={2026}
 }
 ```
