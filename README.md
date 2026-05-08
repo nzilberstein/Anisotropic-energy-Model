@@ -260,6 +260,8 @@ tensorboard --logdir models/
 
 Training automatically resumes from the last checkpoint when `main.py` is re-run with the same `--name`.
 
+We provide the ckpts used in the paper in this link https://drive.google.com/drive/folders/1eahEVy8mXqGYqqcgeeQAIvUk7xTqt5R2?usp=sharing
+
 ---
 
 ## Blind Inverse Problem Experiments
