@@ -1,4 +1,4 @@
-# Learning Normalized Energy Models for Linear Inverse Problems
+# Learning Normalized Energy Models for Linear Inverse Problems [ICML 2026]
 
 
 This repository contains the official code for the paper **"Learning Normalized Energy Models for Linear Inverse Problems"** published at ICML 2026. The method learns an anisotropic energy model by training a covariance-conditioned denoiser, enabling both generative sampling and blind parameter estimation for linear inverse problems.
